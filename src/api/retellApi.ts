@@ -2,14 +2,21 @@ import Retell from 'retell-sdk';
 import type { FilterCriteria, ListCallsParams, RetellCall } from '../types/retell';
 
 const PAGE_SIZE = 1000;
+const TELEPHONY_COST_PER_MINUTE = 0.014;
 
-const client = new Retell({
-  apiKey: 'key_d9516157342e35441ad9a1255d68',
-});
+let client: Retell;
+
+export const initializeClient = (apiKey: string) => {
+  client = new Retell({ apiKey });
+};
 
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 export const fetchAllCalls = async (filterCriteria?: FilterCriteria): Promise<RetellCall[]> => {
+  if (!client) {
+    throw new Error('Retell client not initialized. Please select a workspace first.');
+  }
+
   let allCalls: RetellCall[] = [];
   let lastCallId: string | undefined;
   let hasMore = true;
@@ -76,6 +83,10 @@ export const fetchAllCalls = async (filterCriteria?: FilterCriteria): Promise<Re
 
 export const fetchAgents = async (): Promise<{ id: string; name: string }[]> => {
   try {
+    if (!client) {
+      throw new Error('Retell client not initialized. Please select a workspace first.');
+    }
+
     console.log('Fetching agents...');
     const response = await client.agent.list();
     console.log('Raw agents response:', JSON.stringify(response, null, 2));
@@ -101,19 +112,51 @@ export const fetchAgents = async (): Promise<{ id: string; name: string }[]> => 
 };
 
 export const calculateSummaryStats = (calls: RetellCall[]) => {
+  console.log('Calculating summary stats for', calls.length, 'calls');
+  
   const totalCalls = calls.length;
-  const totalMinutes = calls.reduce((sum, call) => 
-    sum + ((call.call_cost?.total_duration_seconds || 0) / 60), 0
+  
+  // Calculate agent cost (sum of costs received by API for all calls)
+  const agentCost = calls.reduce((sum, call) => 
+    sum + ((call.call_cost?.combined_cost || 0) / 100), 0
   );
-  const totalCostCents = calls.reduce((sum, call) => 
-    sum + ((call.call_cost?.combined_cost || 0)), 0
+  
+  // Calculate telephony cost with detailed logging
+  const telephonyCost = calls.reduce((sum, call, index) => {
+    const durationSeconds = call.duration_ms / 1000;
+    const durationMinutes = durationSeconds / 60;
+    
+    let callTelephonyCost;
+    if (durationSeconds === 0) {
+      callTelephonyCost = TELEPHONY_COST_PER_MINUTE; // 0.014 for zero duration calls
+      console.log(`Call ${index + 1}: Zero duration, telephony cost: ${callTelephonyCost}`);
+    } else {
+      const roundedMinutes = Math.ceil(durationMinutes);
+      callTelephonyCost = roundedMinutes * TELEPHONY_COST_PER_MINUTE;
+      console.log(`Call ${index + 1}: ${durationSeconds}s (${durationMinutes.toFixed(2)}min) -> ${roundedMinutes} rounded min, telephony cost: ${callTelephonyCost}`);
+    }
+    
+    return sum + callTelephonyCost;
+  }, 0);
+  
+  // Total cost is sum of agent cost + telephony cost
+  const totalCost = agentCost + telephonyCost;
+  
+  // Total minutes (actual duration, not rounded)
+  const totalMinutes = calls.reduce((sum, call) => 
+    sum + ((call.call_cost?.total_duration_seconds || call.duration_ms / 1000) / 60), 0
   );
 
-  return {
+  const result = {
     totalCalls,
     totalMinutes: parseFloat(totalMinutes.toFixed(2)),
-    totalCost: parseFloat((totalCostCents / 100).toFixed(2))
+    agentCost: parseFloat(agentCost.toFixed(3)),
+    telephonyCost: parseFloat(telephonyCost.toFixed(3)),
+    totalCost: parseFloat(totalCost.toFixed(3))
   };
+  
+  console.log('Summary stats calculated:', result);
+  return result;
 };
 
 export const createDateFilter = (startDate?: Date, endDate?: Date): FilterCriteria['start_timestamp'] => {

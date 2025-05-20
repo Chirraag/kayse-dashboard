@@ -1,32 +1,62 @@
 import React from 'react';
-import { Clock, DollarSign, Phone } from 'lucide-react';
-import { SummaryStats } from '../types/retell';
+import { Phone, Clock, DollarSign } from 'lucide-react';
+import type { SummaryStats as SummaryStatsType } from '../types/retell';
 
-interface SummaryStatsComponentProps {
-  stats: SummaryStats;
+interface SummaryStatsProps {
+  stats: SummaryStatsType;
   isLoading: boolean;
 }
 
-const SummaryStatsDisplay: React.FC<SummaryStatsComponentProps> = ({ stats, isLoading }) => {
+const StatCard: React.FC<{
+  icon: React.ReactNode;
+  label: string;
+  value: string | number;
+  subValue?: string;
+  isLoading: boolean;
+}> = ({ icon, label, value, subValue, isLoading }) => (
+  <div className="bg-white rounded-lg shadow-md p-6">
+    <div className="flex items-center gap-4">
+      <div className="p-3 bg-blue-100 rounded-full">
+        {icon}
+      </div>
+      <div>
+        <p className="text-gray-600 text-sm">{label}</p>
+        {isLoading ? (
+          <>
+            <div className="h-8 w-32 bg-gray-200 animate-pulse rounded mb-1"></div>
+            {subValue && <div className="h-4 w-24 bg-gray-200 animate-pulse rounded"></div>}
+          </>
+        ) : (
+          <>
+            <p className="text-2xl font-semibold">{value}</p>
+            {subValue && <p className="text-gray-500 text-sm">{subValue}</p>}
+          </>
+        )}
+      </div>
+    </div>
+  </div>
+);
+
+const SummaryStats: React.FC<SummaryStatsProps> = ({ stats, isLoading }) => {
   return (
-    <div className="grid grid-cols-1 gap-4 md:grid-cols-3 mb-6">
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
       <StatCard
         icon={<Phone className="w-6 h-6 text-blue-600" />}
-        title="Total Calls"
-        value={stats.totalCalls.toString()}
+        label="Total Calls"
+        value={stats.totalCalls}
+        subValue={`${stats.totalMinutes} minutes`}
         isLoading={isLoading}
       />
-      
       <StatCard
-        icon={<Clock className="w-6 h-6 text-teal-600" />}
-        title="Total Minutes"
-        value={`${stats.totalMinutes.toFixed(2)}`}
+        icon={<Clock className="w-6 h-6 text-blue-600" />}
+        label="Agent Cost"
+        value={`$${stats.agentCost.toFixed(2)}`}
+        subValue={`Telephony: $${stats.telephonyCost.toFixed(2)}`}
         isLoading={isLoading}
       />
-      
       <StatCard
-        icon={<DollarSign className="w-6 h-6 text-emerald-600" />}
-        title="Total Cost"
+        icon={<DollarSign className="w-6 h-6 text-blue-600" />}
+        label="Total Cost"
         value={`$${stats.totalCost.toFixed(2)}`}
         isLoading={isLoading}
       />
@@ -34,28 +64,5 @@ const SummaryStatsDisplay: React.FC<SummaryStatsComponentProps> = ({ stats, isLo
   );
 };
 
-interface StatCardProps {
-  icon: React.ReactNode;
-  title: string;
-  value: string;
-  isLoading: boolean;
-}
 
-const StatCard: React.FC<StatCardProps> = ({ icon, title, value, isLoading }) => {
-  return (
-    <div className="stat-card">
-      <div className="flex items-center mb-2">
-        {icon}
-        <h3 className="text-gray-600 ml-2 font-medium">{title}</h3>
-      </div>
-      
-      {isLoading ? (
-        <div className="animate-pulse h-8 bg-gray-200 rounded w-24"></div>
-      ) : (
-        <p className="text-3xl font-bold text-gray-900">{value}</p>
-      )}
-    </div>
-  );
-};
-
-export default SummaryStatsDisplay;
+export default SummaryStats

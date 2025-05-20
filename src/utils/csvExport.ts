@@ -1,7 +1,7 @@
-import { RetellCall } from '../types/retell';
+import { RetellCall, Agent } from '../types/retell';
 
 // Fixed values for cost calculations
-const TWILIO_COST_PER_MINUTE = 0.145;
+const COST_PER_MINUTE = 0.15;
 
 export const formatDate = (timestamp: number): string => {
   return new Date(timestamp).toLocaleString('en-US', {
@@ -15,25 +15,24 @@ export const formatDate = (timestamp: number): string => {
   });
 };
 
-export const generateCSV = (calls: RetellCall[]): string => {
+export const generateCSV = (calls: RetellCall[], agents: Agent[]): string => {
+  // Create agent lookup map for getting agent names
+  const agentMap = new Map<string, string>();
+  agents.forEach(agent => {
+    agentMap.set(agent.id, agent.name);
+  });
+
   // Define CSV headers
   const headers = [
-    'Call ID', 
-    'Agent ID', 
-    'Start Date', 
+    'Start Date',
     'Start Time', 
+    'Case ID',
     'From Number',
     'To Number',
-    'Duration (Seconds)', 
-    'Duration (Minutes)', 
-    'Status', 
-    'Call Type',
     'Post Call Status',
-    'AI Cost per Minute (without Twilio)',
-    'AI Cost per Second',
-    'AI Cost',
-    'Twilio Cost per Minute',
-    'Twilio Cost',
+    'Agent Name',
+    'Duration (Minutes)',
+    'Cost per Minute',
     'Total Cost'
   ].join(',');
 
@@ -56,19 +55,11 @@ export const generateCSV = (calls: RetellCall[]): string => {
     const durationSeconds = call.duration_ms / 1000;
     const durationMinutes = durationSeconds / 60;
     
-    // Get Retell AI cost directly from the API (in dollars)
-    const retellCostDollars = (call.call_cost?.combined_cost || 0) / 100;
+    // Convert 0 to 1 and round up all other durations
+    const roundedMinutes = durationMinutes === 0 ? 1 : Math.ceil(durationMinutes);
     
-    // Calculate AI cost per minute and per second
-    const aiCostPerMinute = durationMinutes > 0 ? retellCostDollars / durationMinutes : 0;
-    const aiCostPerSecond = durationSeconds > 0 ? retellCostDollars / durationSeconds : 0;
-    
-    // Calculate Twilio costs (ceiling rounding to full minutes)
-    const billableMinutes = Math.ceil(durationMinutes);
-    const twilioCost = billableMinutes * TWILIO_COST_PER_MINUTE;
-    
-    // Total cost is Retell AI cost + Twilio cost
-    const totalCost = retellCostDollars + twilioCost;
+    // Calculate total cost: 0.15 * rounded minutes
+    const totalCost = COST_PER_MINUTE * roundedMinutes;
     
     // Extract post-call-status from custom_analysis_data if it exists
     let postCallStatus = 'N/A';
@@ -76,24 +67,20 @@ export const generateCSV = (calls: RetellCall[]): string => {
       postCallStatus = call.call_analysis.custom_analysis_data['post-call-status'] || 'N/A';
     }
     
+    // Get agent name from agent map
+    const agentName = agentMap.get(call.agent_id) || call.agent_id;
+    
     return [
-      call.id.replace('call_', ''),
-      call.agent_id,
       startDate,
       startTime,
+      call.metadata?.case_id || 'N/A',
       call.from_number || 'N/A',
       call.to_number || 'N/A',
-      durationSeconds.toFixed(5),
-      durationMinutes.toFixed(5),
-      call.call_status,
-      call.call_type,
       postCallStatus,
-      aiCostPerMinute.toFixed(5),
-      aiCostPerSecond.toFixed(5),
-      retellCostDollars.toFixed(5),
-      TWILIO_COST_PER_MINUTE.toFixed(5),
-      twilioCost.toFixed(5),
-      totalCost.toFixed(5)
+      agentName,
+      roundedMinutes.toFixed(3),
+      COST_PER_MINUTE.toFixed(2),
+      totalCost.toFixed(3)
     ].join(',');
   });
 
@@ -101,14 +88,25 @@ export const generateCSV = (calls: RetellCall[]): string => {
   return [headers, ...rows].join('\n');
 };
 
-export const downloadCSV = (calls: RetellCall[]): void => {
-  const csv = generateCSV(calls);
+export const downloadCSV = (
+  calls: RetellCall[],
+  agents: Agent[],
+  workspaceName: string,
+  startDate?: Date,
+  endDate?: Date
+): void => {
+  const csv = generateCSV(calls, agents);
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   
+  const formattedWorkspace = workspaceName.toLowerCase().replace(/\s+/g, '_');
+  const dateStr = startDate && endDate
+    ? `_${startDate.toISOString().split('T')[0]}_to_${endDate.toISOString().split('T')[0]}`
+    : `_${new Date().toISOString().split('T')[0]}`;
+  
   link.setAttribute('href', url);
-  link.setAttribute('download', `retell-calls-${new Date().toISOString().split('T')[0]}.csv`);
+  link.setAttribute('download', `${formattedWorkspace}${dateStr}.csv`);
   link.style.visibility = 'hidden';
   
   document.body.appendChild(link);

@@ -9,6 +9,9 @@ export interface RetellCall {
   from_number: string;
   to_number: string;
   direction: string;
+  metadata?: {
+    case_id?: string;
+  };
   latency?: {
     llm: LatencyMetrics;
     e2e: LatencyMetrics;
@@ -84,5 +87,17 @@ export interface ListCallsParams {
 export interface SummaryStats {
   totalCalls: number;
   totalMinutes: number;
+  agentCost: number;
+  telephonyCost: number;
   totalCost: number;
+}
+
+export interface Workspace {
+  name: string;
+  apiKey: string;
+}
+
+export interface WorkspaceContextType {
+  selectedWorkspace: Workspace | null;
+  setSelectedWorkspace: (workspace: Workspace) => void;
 }
