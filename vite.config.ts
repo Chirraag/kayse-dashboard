@@ -9,7 +9,6 @@ export default defineConfig({
     nodePolyfills({
       // Include crypto specifically for retell-sdk
       include: ["crypto"],
-      // Add globals that might be needed
       globals: {
         Buffer: true,
         process: true,
@@ -18,5 +17,10 @@ export default defineConfig({
   ],
   optimizeDeps: {
     exclude: ["lucide-react"],
+  },
+  // Add server configuration for development
+  server: {
+    host: "0.0.0.0",
+    port: 5000,
   },
 });
