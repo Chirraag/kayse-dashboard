@@ -16,7 +16,7 @@ interface CallsTableProps {
 }
 
 // Fixed values for cost calculations
-const TWILIO_COST_PER_MINUTE = 0.145;
+const TWILIO_COST_PER_MINUTE = 0.014;
 
 const CallsTable: React.FC<CallsTableProps> = ({ calls, isLoading }) => {
   const [sorting, setSorting] = useState<SortingState>([

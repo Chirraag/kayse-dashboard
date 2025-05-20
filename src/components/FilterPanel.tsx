@@ -104,7 +104,7 @@ const FilterPanel: React.FC<FilterPanelProps> = ({
             className="btn-success"
           >
             <Download className="w-4 h-4" />
-            Export CSV
+            Export Client Bill
           </button>
         </div>
       </div>
