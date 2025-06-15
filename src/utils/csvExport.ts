@@ -16,15 +16,16 @@ export const formatDate = (timestamp: number): string => {
   });
 };
 
-export const generateCSV = (calls: RetellCall[], agents: Agent[]): string => {
+export const generateCSV = (calls: RetellCall[], agents: Agent[], workspaceName: string): string => {
   // Create agent lookup map for getting agent names
   const agentMap = new Map<string, string>();
   agents.forEach((agent) => {
     agentMap.set(agent.id, agent.name);
   });
 
-  // Define CSV headers
+  // Define CSV headers - added Company Name column
   const headers = [
+    "Company Name",
     "Start Date",
     "Start Time",
     "Case ID",
@@ -78,6 +79,7 @@ export const generateCSV = (calls: RetellCall[], agents: Agent[]): string => {
     const agentName = agentMap.get(call.agent_id) || call.agent_id;
 
     return [
+      workspaceName, // Added company name as first column
       startDate,
       startTime,
       call.metadata?.case_id || "N/A",
@@ -102,7 +104,7 @@ export const downloadCSV = (
   startDate?: Date,
   endDate?: Date,
 ): void => {
-  const csv = generateCSV(calls, agents);
+  const csv = generateCSV(calls, agents, workspaceName);
   const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
